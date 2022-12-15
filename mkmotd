@@ -1,0 +1,104 @@
+#!/usr/bin/bash
+
+# ImageMagickが使えるか？
+if !(type "convert" > /dev/null 2>&1); then
+  # 対象のコマンドをインストールするような処理
+  echo "please install ImageMagick!!"
+  echo "$ yum install -y ImageMagick"
+  exit 1;
+fi
+
+#定数
+tmp="tmp/temp_image";
+dot_path="tmp/dot_image"
+
+# DEFAULT 
+path=""
+size="32"
+trans_position="0,0"
+background="0;0;0"
+
+
+# 環境準備
+mkdir -p tmp
+
+# OPTION GET
+while getopts p:s:t:b-: opt; do
+  optarg="$OPTARG"
+  [[ "$opt" = - ]] && opt="$OPTARG" && optarg="${!OPTIND}" && shift
+  case $opt in
+    p|path )            path="$optarg";           ;;
+    s|size )            size="$optarg";           ;;
+    t|trans-position )  trans_position="$optarg"; ;;
+    b|background )      background="$optarg";     ;;
+    * )                 echo "$0: illegal option -- ${opt##-}" >&2; exit 1 ;;
+  esac
+done
+
+# CONFIRM
+echo "path=$path"
+echo "size=$size"
+echo "trans_position=$trans_position"
+echo "background=$background"
+
+trans_position=(${trans_position//,/ })
+transparent_after="$background"
+
+# URLなら画像を取得する
+if [[ $path =~ ^http ]] ; then
+  echo "TASK: Download start."
+  tmp_name=`basename "$path"`
+  wget --no-check-certificate "$path" -O "$tmp_name" > /dev/null 2>&1
+  path="$tmp_name"
+  echo "new path=$path"
+fi
+
+# 透過したい色を取得する
+echo "TASK: Transparent color get."
+rgb=`convert "$path" -crop 1x1+${trans_position[0]}+${trans_position[1]} txt:- | tail -n1 | awk '{print $3}'`
+echo $rgb
+trans_r=`bc <<<"obase=10; ibase=16; ${rgb:1:2}"`
+trans_g=`bc <<<"obase=10; ibase=16; ${rgb:3:2}"`
+trans_b=`bc <<<"obase=10; ibase=16; ${rgb:5:2}"`
+transparent_before="${trans_r};${trans_g};${trans_b}"
+
+echo "get trans_color: $transparent_before"
+
+# リサイズ処理をする
+echo "TASK: Resize image."
+convert "$path" -interpolative-resize ${size}x${size} -compress none "$tmp"
+ppm=$(convert "$tmp" -interpolative-resize ${size}x${size} -compress none ppm:- 2>/dev/null)
+
+# get cols, then discard ppm parameters
+set ${ppm}
+cols=${2}
+shift 4
+
+{
+    # get three each values (rgb) from ppm
+    for i in $(eval echo {1..${#}..3})
+    do
+        j=$((i+1))
+        k=$((i+2))
+
+        rgb="${!i};${!j};${!k}"
+
+        # replace transparent color
+        if [ ${rgb} == ${transparent_before} ] ; then
+          rgb=${transparent_after}
+        fi
+
+        # start a new line when reach cols
+        if [ $(( (${i} + 2) / 3 % ${cols} )) -eq 0 ] ; then
+          echo -e "\033[48;2;${rgb}m  \033[m"
+        else
+          echo -en "\033[48;2;${rgb}m  \033[m"
+        fi
+    done
+} > $dot_path
+
+cat $dot_path
+
+echo "COMPLEATE!! Let's Setting!!"
+echo -e "\e[34;1m$ scp $dot_path {your-name}@{your-server}:/etc/motd\e[m"
+exit 0
