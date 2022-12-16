@@ -23,7 +23,7 @@ background="0;0;0"
 mkdir -p tmp
 
 # OPTION GET
-while getopts p:s:t:b-: opt; do
+while getopts p:s:t:b:-: opt; do
   optarg="$OPTARG"
   [[ "$opt" = - ]] && opt="$OPTARG" && optarg="${!OPTIND}" && shift
   case $opt in
