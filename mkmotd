@@ -66,8 +66,8 @@ echo "get trans_color: $transparent_before"
 
 # リサイズ処理をする
 echo "TASK: Resize image."
-convert "$path" -interpolative-resize ${size}x${size} -compress none "$tmp"
-ppm=$(convert "$tmp" -interpolative-resize ${size}x${size} -compress none ppm:- 2>/dev/null)
+convert "$path" -interpolate bilinear -resize ${size}x${size} -compress none "$tmp"
+ppm=$(convert "$tmp" -interpolate bilinear -resize ${size}x${size} -compress none ppm:- 2>/dev/null)
 
 # get cols, then discard ppm parameters
 set ${ppm}
