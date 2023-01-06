@@ -8,19 +8,11 @@ if !(type "convert" > /dev/null 2>&1); then
   exit 1;
 fi
 
-#定数
-tmp="tmp/temp_image";
-dot_path="tmp/dot_image"
-
 # DEFAULT 
 path=""
 size="32"
 trans_position="0,0"
 background="0;0;0"
-
-
-# 環境準備
-mkdir -p tmp
 
 # OPTION GET
 while getopts p:s:t:b:-: opt; do
@@ -53,6 +45,9 @@ if [[ $path =~ ^http ]] ; then
   echo "new path=$path"
 fi
 
+# 出力ファイル
+dot_path="${path%.*}.dot"
+
 # 透過したい色を取得する
 echo "TASK: Transparent color get."
 rgb=`convert "$path" -crop 1x1+${trans_position[0]}+${trans_position[1]} txt:- | tail -n1 | awk '{print $3}'`
@@ -66,8 +61,7 @@ echo "get trans_color: $transparent_before"
 
 # リサイズ処理をする
 echo "TASK: Resize image."
-convert "$path" -interpolative-resize ${size}x${size} -compress none "$tmp"
-ppm=$(convert "$tmp" -interpolative-resize ${size}x${size} -compress none ppm:- 2>/dev/null)
+ppm=$(convert "${path}" -interpolate bilinear -resize ${size}x${size} -compress none ppm:- 2>/dev/null)
 
 # get cols, then discard ppm parameters
 set ${ppm}
